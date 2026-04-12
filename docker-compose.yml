@@ -1,0 +1,327 @@
+services:
+  # Webapp DB
+  #escape_web_db:
+  #  image: postgres:17
+  #  platform: linux/amd64
+  #  environment:
+  #    POSTGRES_DB: ${WEB_DB_DATABASE}
+  #    POSTGRES_USER: ${WEB_DB_USERNAME}
+  #    POSTGRES_PASSWORD: ${WEB_DB_PASSWORD}
+  #  volumes:
+  #    - web_pgdata:/var/lib/postgresql/data
+  #  networks:
+  #    - escape-network
+  #  healthcheck:
+  #    test: ["CMD", "pg_isready", "-U", "${WEB_DB_USERNAME}"]
+  #    interval: 30s
+  #    timeout: 10s
+  #    retries: 5
+
+  # Webapp
+  escape_webapp:
+    image: registry.onstackit.cloud/escapecloud/app_web:${WEB_IMAGE_TAG}
+    pull_policy: if_not_present
+    platform: linux/amd64
+    env_file:
+      - .env
+    depends_on:
+      escape_web_db:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      escape-network:
+        aliases:
+          - escape-webapp
+    volumes:
+      - ./certs:/run/certs:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  escape_scheduler:
+    image: registry.onstackit.cloud/escapecloud/app_web:${WEB_IMAGE_TAG}
+    pull_policy: if_not_present
+    platform: linux/amd64
+    env_file:
+      - .env
+    depends_on:
+      escape_web_db:
+        condition: service_healthy
+      escape_webapp:
+        condition: service_started
+    entrypoint: ["supercronic"]
+    command: ["/usr/src/app/crontab"]
+    restart: unless-stopped
+    networks:
+      - escape-network
+
+  # Engine DB
+  escape_engine_db:
+    image: postgres:17
+    platform: linux/amd64
+    environment:
+      POSTGRES_DB: ${ENGINE_DB_DATABASE}
+      POSTGRES_USER: ${ENGINE_DB_USERNAME}
+      POSTGRES_PASSWORD: ${ENGINE_DB_PASSWORD}
+    volumes:
+      - engine_pgdata:/var/lib/postgresql/data
+    networks:
+      - escape-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${ENGINE_DB_USERNAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Engine DB init/migrations
+  escape_db_init:
+    image: registry.onstackit.cloud/escapecloud/app_engine:${ENGINE_IMAGE_TAG}
+    platform: linux/amd64
+    pull_policy: if_not_present
+    env_file:
+      - .env
+    depends_on:
+      escape_engine_db:
+        condition: service_healthy
+    working_dir: /usr/src/app/db
+    command: >
+      python update.py
+    restart: "no"
+    networks:
+      - escape-network
+
+  # RabbitMQ
+  #rabbitmq:
+  #  image: rabbitmq:3-management
+  #  environment:
+  #    RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+  #    RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+  #  ports:
+  #    - "5672:5672"
+  #    - "15672:15672"
+  #  healthcheck:
+  #    test: ["CMD", "rabbitmq-diagnostics", "ping"]
+  #    interval: 10s
+  #    timeout: 5s
+  #    retries: 5
+  #  networks:
+  #    - escape-network
+
+  # Engine API
+  escape_api:
+    image: registry.onstackit.cloud/escapecloud/app_engine:${ENGINE_IMAGE_TAG}
+    platform: linux/amd64
+    pull_policy: if_not_present
+    env_file:
+      - .env
+    depends_on:
+      escape_engine_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      escape_db_init:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    working_dir: /usr/src/app/api
+    command: >
+      uvicorn main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - escape-network
+
+  escape_engine_stage1:
+    image: registry.onstackit.cloud/escapecloud/app_engine:${ENGINE_IMAGE_TAG}
+    platform: linux/amd64
+    pull_policy: if_not_present
+    env_file:
+      - .env
+    depends_on:
+      escape_engine_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      escape_db_init:
+        condition: service_completed_successfully
+    working_dir: /usr/src/app/engine/engine_stage1
+    command: >
+      celery -A tasks_stage1.celery_app worker
+      --loglevel=info -Q stage0 -E --pool=solo --concurrency=1
+    networks:
+      - escape-network
+
+  escape_engine_stage2:
+    image: registry.onstackit.cloud/escapecloud/app_engine:${ENGINE_IMAGE_TAG}
+    platform: linux/amd64
+    pull_policy: if_not_present
+    env_file:
+      - .env
+    depends_on:
+      escape_engine_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      escape_db_init:
+        condition: service_completed_successfully
+    working_dir: /usr/src/app/engine/engine_stage2
+    command: >
+      celery -A tasks_stage2.celery_app worker
+      --loglevel=info -Q stage1 -E --pool=solo --concurrency=1
+    networks:
+      - escape-network
+
+  escape_engine_stage3:
+    image: registry.onstackit.cloud/escapecloud/app_engine:${ENGINE_IMAGE_TAG}
+    platform: linux/amd64
+    pull_policy: if_not_present
+    env_file:
+      - .env
+    depends_on:
+      escape_engine_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      escape_db_init:
+        condition: service_completed_successfully
+    working_dir: /usr/src/app/engine/engine_stage3
+    command: >
+      celery -A tasks_stage3.celery_app worker
+      --loglevel=info -Q stage2 -E --pool=solo --concurrency=1
+    networks:
+      - escape-network
+
+  escape_engine_stage4:
+    image: registry.onstackit.cloud/escapecloud/app_engine:${ENGINE_IMAGE_TAG}
+    platform: linux/amd64
+    pull_policy: if_not_present
+    env_file:
+      - .env
+    depends_on:
+      escape_engine_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      escape_db_init:
+        condition: service_completed_successfully
+    working_dir: /usr/src/app/engine/engine_stage4
+    command: >
+      celery -A tasks_stage4.celery_app worker
+      --loglevel=info -Q stage3 -E --pool=solo --concurrency=1
+    networks:
+      - escape-network
+
+  escape_engine_stage5:
+    image: registry.onstackit.cloud/escapecloud/app_engine:${ENGINE_IMAGE_TAG}
+    platform: linux/amd64
+    pull_policy: if_not_present
+    env_file:
+      - .env
+    depends_on:
+      escape_engine_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      escape_db_init:
+        condition: service_completed_successfully
+    working_dir: /usr/src/app/engine/engine_stage5
+    command: >
+      celery -A tasks_stage5.celery_app worker
+      --loglevel=info -Q stage4 -E --pool=solo --concurrency=1
+    networks:
+      - escape-network
+
+  escape_engine_stage6:
+    image: registry.onstackit.cloud/escapecloud/app_engine:${ENGINE_IMAGE_TAG}
+    platform: linux/amd64
+    pull_policy: if_not_present
+    env_file:
+      - .env
+    depends_on:
+      escape_engine_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      escape_db_init:
+        condition: service_completed_successfully
+    working_dir: /usr/src/app/engine/engine_stage6
+    command: >
+      celery -A tasks_stage6.celery_app worker
+      --loglevel=info -Q stage5 -E --pool=solo --concurrency=1
+    networks:
+      - escape-network
+
+  escape_engine_stage7:
+    image: registry.onstackit.cloud/escapecloud/app_engine:${ENGINE_IMAGE_TAG}
+    platform: linux/amd64
+    pull_policy: if_not_present
+    env_file:
+      - .env
+    depends_on:
+      escape_engine_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      escape_db_init:
+        condition: service_completed_successfully
+    working_dir: /usr/src/app/engine/engine_stage7
+    command: >
+      celery -A tasks_stage7.celery_app worker
+      --loglevel=info -Q stage6 -E --pool=solo --concurrency=1
+    networks:
+      - escape-network
+
+  escape_engine_stage8:
+    image: registry.onstackit.cloud/escapecloud/app_engine:${ENGINE_IMAGE_TAG}
+    platform: linux/amd64
+    pull_policy: if_not_present
+    env_file:
+      - .env
+    depends_on:
+      escape_engine_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      escape_db_init:
+        condition: service_completed_successfully
+    working_dir: /usr/src/app/engine/engine_stage8
+    command: >
+      celery -A tasks_stage8.celery_app worker
+      --loglevel=info -Q stage7 -E --pool=solo --concurrency=1
+    networks:
+      - escape-network
+
+  escape_engine_stage9:
+    image: registry.onstackit.cloud/escapecloud/app_engine:${ENGINE_IMAGE_TAG}
+    platform: linux/amd64
+    pull_policy: if_not_present
+    env_file:
+      - .env
+    depends_on:
+      escape_engine_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      escape_db_init:
+        condition: service_completed_successfully
+    working_dir: /usr/src/app/engine/engine_stage9
+    command: >
+      celery -A tasks_stage9.celery_app worker
+      --loglevel=info -Q stage8,error -E --pool=solo --concurrency=1
+    networks:
+      - escape-network
+
+volumes:
+  web_pgdata:
+  engine_pgdata:
+
+networks:
+  escape-network:
+    driver: bridge
