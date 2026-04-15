@@ -24,9 +24,9 @@ services:
     platform: linux/amd64
     env_file:
       - .env
-    depends_on:
-      escape_web_db:
-        condition: service_healthy
+  #  depends_on:
+  #    escape_web_db:
+  #      condition: service_healthy
     ports:
       - "80:80"
       - "443:443"
@@ -49,8 +49,8 @@ services:
     env_file:
       - .env
     depends_on:
-      escape_web_db:
-        condition: service_healthy
+    #  escape_web_db:
+    #    condition: service_healthy
       escape_webapp:
         condition: service_started
     entrypoint: ["supercronic"]
@@ -60,22 +60,22 @@ services:
       - escape-network
 
   # Engine DB
-  escape_engine_db:
-    image: postgres:17
-    platform: linux/amd64
-    environment:
-      POSTGRES_DB: ${ENGINE_DB_DATABASE}
-      POSTGRES_USER: ${ENGINE_DB_USERNAME}
-      POSTGRES_PASSWORD: ${ENGINE_DB_PASSWORD}
-    volumes:
-      - engine_pgdata:/var/lib/postgresql/data
-    networks:
-      - escape-network
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${ENGINE_DB_USERNAME}"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+  #escape_engine_db:
+  #  image: postgres:17
+  #  platform: linux/amd64
+  #  environment:
+  #    POSTGRES_DB: ${ENGINE_DB_DATABASE}
+  #    POSTGRES_USER: ${ENGINE_DB_USERNAME}
+  #    POSTGRES_PASSWORD: ${ENGINE_DB_PASSWORD}
+  #  volumes:
+  #    - engine_pgdata:/var/lib/postgresql/data
+  #  networks:
+  #    - escape-network
+  #  healthcheck:
+  #    test: ["CMD", "pg_isready", "-U", "${ENGINE_DB_USERNAME}"]
+  #    interval: 30s
+  #    timeout: 10s
+  #    retries: 5
 
   # Engine DB init/migrations
   escape_db_init:
@@ -84,9 +84,9 @@ services:
     pull_policy: if_not_present
     env_file:
       - .env
-    depends_on:
-      escape_engine_db:
-        condition: service_healthy
+    #depends_on:
+    #  escape_engine_db:
+    #    condition: service_healthy
     working_dir: /usr/src/app/db
     command: >
       python update.py
@@ -119,10 +119,10 @@ services:
     env_file:
       - .env
     depends_on:
-      escape_engine_db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      #escape_engine_db:
+      #  condition: service_healthy
+      #rabbitmq:
+      #  condition: service_healthy
       escape_db_init:
         condition: service_completed_successfully
     ports:
@@ -145,10 +145,10 @@ services:
     env_file:
       - .env
     depends_on:
-      escape_engine_db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      #escape_engine_db:
+      #  condition: service_healthy
+      #rabbitmq:
+      #  condition: service_healthy
       escape_db_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage1
@@ -165,10 +165,10 @@ services:
     env_file:
       - .env
     depends_on:
-      escape_engine_db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      #escape_engine_db:
+      #  condition: service_healthy
+      #rabbitmq:
+      #  condition: service_healthy
       escape_db_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage2
@@ -185,10 +185,10 @@ services:
     env_file:
       - .env
     depends_on:
-      escape_engine_db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      #escape_engine_db:
+      #  condition: service_healthy
+      #rabbitmq:
+      #  condition: service_healthy
       escape_db_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage3
@@ -205,10 +205,10 @@ services:
     env_file:
       - .env
     depends_on:
-      escape_engine_db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      #escape_engine_db:
+      #  condition: service_healthy
+      #rabbitmq:
+      #  condition: service_healthy
       escape_db_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage4
@@ -225,10 +225,10 @@ services:
     env_file:
       - .env
     depends_on:
-      escape_engine_db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      #escape_engine_db:
+      #  condition: service_healthy
+      #rabbitmq:
+      #  condition: service_healthy
       escape_db_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage5
@@ -245,10 +245,10 @@ services:
     env_file:
       - .env
     depends_on:
-      escape_engine_db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      #escape_engine_db:
+      #  condition: service_healthy
+      #rabbitmq:
+      #  condition: service_healthy
       escape_db_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage6
@@ -265,10 +265,10 @@ services:
     env_file:
       - .env
     depends_on:
-      escape_engine_db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      #escape_engine_db:
+      #  condition: service_healthy
+      #rabbitmq:
+      #  condition: service_healthy
       escape_db_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage7
@@ -285,10 +285,10 @@ services:
     env_file:
       - .env
     depends_on:
-      escape_engine_db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      #escape_engine_db:
+      #  condition: service_healthy
+      #rabbitmq:
+      #  condition: service_healthy
       escape_db_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage8
@@ -305,10 +305,10 @@ services:
     env_file:
       - .env
     depends_on:
-      escape_engine_db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      #escape_engine_db:
+      #  condition: service_healthy
+      #rabbitmq:
+      #  condition: service_healthy
       escape_db_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage9

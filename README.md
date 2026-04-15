@@ -20,11 +20,11 @@ The Compose template runs the main Escape components:
 - `escape_api`
 - `escape_engine_stage1` to `escape_engine_stage9`
 - `escape_db_init`
-- `escape_engine_db`
 
 The template also contains optional containerized services for:
 
 - `escape_web_db`
+- `escape_engine_db`
 - `rabbitmq`
 
 If you are using managed infrastructure for PostgreSQL or RabbitMQ, keep using your external services and set the connection details in `.env`.
