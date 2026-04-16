@@ -59,6 +59,27 @@ services:
     networks:
       - escape-network
 
+  escape_web_init:
+    image: registry.onstackit.cloud/escapecloud/app_web:${WEB_IMAGE_TAG}
+    pull_policy: if_not_present
+    platform: linux/amd64
+    env_file:
+      - .env
+    restart: "no"
+    depends_on:
+      escape_webapp:
+        condition: service_healthy
+      escape_api:
+        condition: service_healthy
+    working_dir: /usr/src/app
+    entrypoint: ["sh", "-c"]
+    networks:
+      - escape-network
+    command:
+      - |
+        python manage.py init_baseline &&
+        python manage.py init_masterdata
+
   # Engine DB
   #escape_engine_db:
   #  image: postgres:17
@@ -78,7 +99,7 @@ services:
   #    retries: 5
 
   # Engine DB init/migrations
-  escape_db_init:
+  escape_engine_init:
     image: registry.onstackit.cloud/escapecloud/app_engine:${ENGINE_IMAGE_TAG}
     platform: linux/amd64
     pull_policy: if_not_present
@@ -123,7 +144,7 @@ services:
       #  condition: service_healthy
       #rabbitmq:
       #  condition: service_healthy
-      escape_db_init:
+      escape_engine_init:
         condition: service_completed_successfully
     ports:
       - "8000:8000"
@@ -149,7 +170,7 @@ services:
       #  condition: service_healthy
       #rabbitmq:
       #  condition: service_healthy
-      escape_db_init:
+      escape_engine_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage1
     command: >
@@ -169,7 +190,7 @@ services:
       #  condition: service_healthy
       #rabbitmq:
       #  condition: service_healthy
-      escape_db_init:
+      escape_engine_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage2
     command: >
@@ -189,7 +210,7 @@ services:
       #  condition: service_healthy
       #rabbitmq:
       #  condition: service_healthy
-      escape_db_init:
+      escape_engine_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage3
     command: >
@@ -209,7 +230,7 @@ services:
       #  condition: service_healthy
       #rabbitmq:
       #  condition: service_healthy
-      escape_db_init:
+      escape_engine_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage4
     command: >
@@ -229,7 +250,7 @@ services:
       #  condition: service_healthy
       #rabbitmq:
       #  condition: service_healthy
-      escape_db_init:
+      escape_engine_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage5
     command: >
@@ -249,7 +270,7 @@ services:
       #  condition: service_healthy
       #rabbitmq:
       #  condition: service_healthy
-      escape_db_init:
+      escape_engine_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage6
     command: >
@@ -269,7 +290,7 @@ services:
       #  condition: service_healthy
       #rabbitmq:
       #  condition: service_healthy
-      escape_db_init:
+      escape_engine_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage7
     command: >
@@ -289,7 +310,7 @@ services:
       #  condition: service_healthy
       #rabbitmq:
       #  condition: service_healthy
-      escape_db_init:
+      escape_engine_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage8
     command: >
@@ -309,7 +330,7 @@ services:
       #  condition: service_healthy
       #rabbitmq:
       #  condition: service_healthy
-      escape_db_init:
+      escape_engine_init:
         condition: service_completed_successfully
     working_dir: /usr/src/app/engine/engine_stage9
     command: >

@@ -16,10 +16,11 @@ Project structure:
 The Compose template runs the main Escape components:
 
 - `escape_webapp`
+- `escape_web_init`
 - `escape_scheduler`
 - `escape_api`
 - `escape_engine_stage1` to `escape_engine_stage9`
-- `escape_db_init`
+- `escape_engine_init`
 
 The template also contains optional containerized services for:
 
