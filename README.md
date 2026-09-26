@@ -59,6 +59,8 @@ Important variables:
 
 - `HOST_NAME`
   Public hostname, for example `domain.tld`
+- `ADMINISTRATORS`
+  Global admin e-mails, comma-separated, for example `john@acme.com,jane@acme.com`
 - `WEB_ENV`
   Example: `prod`
 - `WEB_IMAGE_TAG`
